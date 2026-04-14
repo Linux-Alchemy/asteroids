@@ -1,4 +1,5 @@
 {
   "diagnosticMode": "workspace",
+  "extrapaths": ["src/asteroids"],
   "exclude": ["**/.venv", "**/__pycache__"]
 }
