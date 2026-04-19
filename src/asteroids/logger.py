@@ -1,28 +1,30 @@
+"""Simple JSONL logging helpers for game state and events."""
+
 import inspect
 import json
 import math
 from datetime import datetime
+from typing import Any
 
 __all__ = ["log_state", "log_event"]
 
-_FPS = 60
-_MAX_SECONDS = 16
-_SPRITE_SAMPLE_LIMIT = 10  # Maximum number of sprites to log per group
+_FPS: int = 60
+_MAX_SECONDS: int = 16
+_SPRITE_SAMPLE_LIMIT: int = 10
 
-_frame_count = 0
-_state_log_initialized = False
-_event_log_initialized = False
-_start_time = datetime.now()
+_frame_count: int = 0
+_state_log_initialized: bool = False
+_event_log_initialized: bool = False
+_start_time: datetime = datetime.now()
 
 
-def log_state():
+def log_state() -> None:
+    """Write a lightweight game-state snapshot roughly once per second."""
     global _frame_count, _state_log_initialized
 
-    # Stop logging after `_MAX_SECONDS` seconds
     if _frame_count > _FPS * _MAX_SECONDS:
         return
 
-    # Take a snapshot approx. once per second
     _frame_count += 1
     if _frame_count % _FPS != 0:
         return
@@ -37,23 +39,22 @@ def log_state():
     if frame_back is None:
         return
 
-    local_vars = frame_back.f_locals.copy()
-
-    screen_size = []
-    game_state = {}
+    local_vars: dict[str, Any] = frame_back.f_locals.copy()
+    screen_size: tuple[int, ...] = ()
+    game_state: dict[str, Any] = {}
 
     for key, value in local_vars.items():
         if "pygame" in str(type(value)) and hasattr(value, "get_size"):
             screen_size = value.get_size()
 
         if hasattr(value, "__class__") and "Group" in value.__class__.__name__:
-            sprites_data = []
+            sprites_data: list[dict[str, Any]] = []
 
             for i, sprite in enumerate(value):
                 if i >= _SPRITE_SAMPLE_LIMIT:
                     break
 
-                sprite_info = {"type": sprite.__class__.__name__}
+                sprite_info: dict[str, Any] = {"type": sprite.__class__.__name__}
 
                 if hasattr(sprite, "position"):
                     sprite_info["pos"] = [
@@ -107,19 +108,18 @@ def log_state():
         **game_state,
     }
 
-    # New log file on each run
     mode = "w" if not _state_log_initialized else "a"
-    with open("game_state.jsonl", mode) as f:
-        f.write(json.dumps(entry) + "\n")
+    with open("game_state.jsonl", mode, encoding="utf-8") as file_handle:
+        file_handle.write(json.dumps(entry) + "\n")
 
     _state_log_initialized = True
 
 
-def log_event(event_type, **details):
+def log_event(event_type: str, **details: Any) -> None:
+    """Append a structured event entry to the event log."""
     global _event_log_initialized
 
     now = datetime.now()
-
     event = {
         "timestamp": now.strftime("%H:%M:%S.%f")[:-3],
         "elapsed_s": math.floor((now - _start_time).total_seconds()),
@@ -129,7 +129,7 @@ def log_event(event_type, **details):
     }
 
     mode = "w" if not _event_log_initialized else "a"
-    with open("game_events.jsonl", mode) as f:
-        f.write(json.dumps(event) + "\n")
+    with open("game_events.jsonl", mode, encoding="utf-8") as file_handle:
+        file_handle.write(json.dumps(event) + "\n")
 
     _event_log_initialized = True
